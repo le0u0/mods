@@ -12,6 +12,7 @@ Requires Claude Code 2.1.287 or later.
 | --- | --- |
 | `all` | Installs every mod below in one step |
 | `minimal-view` | Hides tool calls and shows a plain checklist of the plan above the prompt. `/minimal on\|off` |
+| `context-bar` | Shows how full the context window is, by category, in a bar above the prompt. `/context-bar on\|off` |
 
 ## Install
 

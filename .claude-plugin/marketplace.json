@@ -14,6 +14,11 @@
       "name": "minimal-view",
       "source": "./mods/minimal-view",
       "description": "Hides tool calls and shows a plain checklist of the plan above the prompt"
+    },
+    {
+      "name": "context-bar",
+      "source": "./mods/context-bar",
+      "description": "Shows how full the context window is, by category, in a bar above the prompt"
     }
   ]
 }
