@@ -31,7 +31,7 @@ const FAILS_BEFORE_STUCK = 3
 const COLLAPSE_AFTER_MS = 5000
 const TICK_MS = 250
 
-const PLACEHOLDER_STEPS = ['Understand your request', 'Plan the steps']
+const UNDERSTAND_STEP = 'Understand your request'
 const ANSWER_STEP = 'Write the answer'
 const NEEDS_OK = 'Claude needs your OK to continue'
 const HAS_QUESTION = 'Claude has a question for you'
@@ -221,7 +221,7 @@ async function startJob($: $, prompt: string): Promise<void> {
     jobId,
     title: 'Working on your request',
     phase: 'working',
-    tasks: makeTasks(PLACEHOLDER_STEPS, `placeholder-${jobId}`),
+    tasks: makeTasks([UNDERSTAND_STEP], `placeholder-${jobId}`),
     isPlanned: false,
     needsYouReason: null,
     stuckReason: null,
@@ -301,7 +301,7 @@ async function startAnswer($: $): Promise<void> {
       : {
           ...current,
           tasks: [
-            { id: `placeholder-${current.jobId}-0`, name: PLACEHOLDER_STEPS[0]!, status: 'done', percent: 100, hasReported: true },
+            { id: `placeholder-${current.jobId}-0`, name: UNDERSTAND_STEP, status: 'done', percent: 100, hasReported: true },
             { id: `placeholder-${current.jobId}-answer`, name: ANSWER_STEP, status: 'active', percent: 0, hasReported: false },
           ],
         },
@@ -599,7 +599,8 @@ export function registerMinimalView(on: On): void {
         await patchRunning($, current => ({ ...current, phase: 'stuck', stuckReason: reason, needsYouReason: null }))
       } else if (checklist.phase === 'stuck') {
         // Stuck stays on screen until the next success or prompt.
-      } else if (checklist.isPlanned && checklist.tasks.some(task => task.status !== 'done')) {
+      } else if (checklist.isPlanned && checklist.tasks.some(task => task.status === 'upcoming')) {
+        // Only steps not yet started mean Claude is waiting on you: the last step is often the reply itself.
         await patchRunning($, current => ({ ...current, phase: 'needs-you', needsYouReason: WAITING_FOR_REPLY }))
       } else {
         await finishJob($, 'done', {
@@ -643,18 +644,22 @@ export function registerMinimalView(on: On): void {
       </Box>
     )
 
+    // Rows from later plugins, like the context bar, stay below the band.
+    const below = await next(e)
+    const stack = (band: ReturnType<typeof Box>) => (
+      <Box flexDirection="column">
+        {band}
+        {below}
+      </Box>
+    )
+
     if (!isEnabled) {
-      return (
-        <Box flexDirection="column">
-          {header(null)}
-          {await next(e)}
-        </Box>
-      )
+      return stack(header(null))
     }
 
     const checklist = await read($, checklistAtom)
     if (checklist === null) {
-      return header(null)
+      return stack(header(null))
     }
     const tick = await read($, tickAtom)
     const now = await $.clock.now()
@@ -700,7 +705,7 @@ export function registerMinimalView(on: On): void {
     })()
 
     if (checklist.phase === 'done' && checklist.isCollapsed) {
-      return header(headerText)
+      return stack(header(headerText))
     }
 
     const labelWidth = 8
@@ -724,7 +729,7 @@ export function registerMinimalView(on: On): void {
         )
       }
       if (task.status === 'active') {
-        const meter = task.hasReported
+        const meter = task.hasReported || isPaused
           ? '█'.repeat(Math.round(task.percent / 10)).padEnd(METER_CELLS, '░')
           : Array.from({ length: METER_CELLS }, (_, cell) => ((cell - tick) % METER_CELLS + METER_CELLS) % METER_CELLS < 3 ? '█' : '░').join('')
 
@@ -733,7 +738,7 @@ export function registerMinimalView(on: On): void {
             <Text color={isPaused ? 'warning' : 'claude'}>{isPaused ? '‖ ' : '▶ '}</Text>
             <Text bold>{fit(task.name)} </Text>
             <Text color="claude">{meter}</Text>
-            <Text>  {task.hasReported ? `${task.percent}%` : 'Working'}</Text>
+            <Text>  {isPaused ? 'Paused' : task.hasReported ? `${task.percent}%` : 'Working'}</Text>
           </Box>
         )
       }
@@ -748,11 +753,11 @@ export function registerMinimalView(on: On): void {
       )
     })
 
-    return (
+    return stack(
       <Box flexDirection="column">
         {header(headerText)}
         {rows}
-      </Box>
+      </Box>,
     )
   })
 }

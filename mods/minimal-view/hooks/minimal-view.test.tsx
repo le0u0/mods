@@ -183,3 +183,80 @@ test('a quick answer with no plan moves on to writing the answer', async ($, on)
   expect(await ui.find({ type: 'Text', text: /Plan the steps/ })).toBeUndefined()
   await ui.unmount()
 })
+
+test('the band keeps rows from later plugins, like the context bar, below the checklist', async ($, on) => {
+  const clock = engine(on)
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  const idle = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await idle.find({ type: 'Text', text: 'engine row' })).toBeDefined()
+  await idle.unmount()
+
+  await $.turn.start({ text: 'Make me a landing page', turnId: 't1' })
+  await call($, PLAN, { steps: ['Read the notes', 'Write the page'] })
+  const running = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await running.find({ type: 'Text', text: /Read the notes/ })).toBeDefined()
+  expect(await running.find({ type: 'Text', text: 'engine row' })).toBeDefined()
+  await running.unmount()
+
+  await call($, PROGRESS, { task: 'Write the page', percent: 100 })
+  await $.turn.complete({ answer: 'Done.', durationMs: 1000, isAborted: false, turnId: 't1', reason: 'answer', usage: { model: 'opus', input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } })
+  await clock.advance(5000)
+  const collapsed = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await collapsed.find({ type: 'Text', text: /All done/ })).toBeDefined()
+  expect(await collapsed.find({ type: 'Text', text: 'engine row' })).toBeDefined()
+  await collapsed.unmount()
+})
+
+test('a new prompt shows only Understand your request until a plan arrives', async ($, on) => {
+  engine(on)
+  await startJob($)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  const rows = (await ui.findAll({ type: 'Text', text: /^(✓|▶|○) $/ })).map(found => found.text)
+  expect(rows).toEqual(['▶ '])
+  expect(await ui.find({ type: 'Text', text: /Understand your request/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Plan the steps/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+const USAGE = { model: 'opus', input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+
+test('an answer that ends while the last step runs counts as done', async ($, on) => {
+  engine(on)
+  await startJob($)
+  await call($, PLAN, { steps: ['Read the notes', 'Report the result'] })
+  await call($, PROGRESS, { task: 'Read the notes', percent: 100 })
+  await $.turn.complete({ answer: 'Done.', durationMs: 1000, isAborted: false, turnId: 't1', reason: 'answer', usage: USAGE })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /All done/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Needs you/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('an answer that ends with steps still to come shows Needs you', async ($, on) => {
+  engine(on)
+  await startJob($)
+  await call($, PLAN, { steps: ['Ask which design', 'Build the page', 'Check the page'] })
+  await $.turn.complete({ answer: 'Which design?', durationMs: 1000, isAborted: false, turnId: 't1', reason: 'answer', usage: USAGE })
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /Needs you/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a paused step stops its meter and says Paused', async ($, on) => {
+  const clock = engine(on)
+  await startJob($)
+  await call($, PLAN, { steps: ['Read the notes', 'Write the page'] })
+  await $.classic.Notification({ message: 'Claude needs your permission', notification_type: 'permission_prompt' })
+  const meterOf = async () => {
+    const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+    expect(await ui.find({ type: 'Text', text: /^\s*Paused$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Working/ })).toBeUndefined()
+    const meter = (await ui.find({ type: 'Text', text: /^[█░]+$/ }))?.text
+    await ui.unmount()
+
+    return meter
+  }
+  const before = await meterOf()
+  await clock.advance(1000)
+  expect(await meterOf()).toBe(before)
+})

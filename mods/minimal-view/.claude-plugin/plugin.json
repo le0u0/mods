@@ -1,6 +1,6 @@
 {
   "name": "minimal-view",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Hides tool calls and shows a plain checklist of the plan above the prompt",
   "author": { "name": "Leo Ho" },
   "types": "./types/index.d.ts"
