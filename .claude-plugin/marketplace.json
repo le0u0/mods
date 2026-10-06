@@ -1,0 +1,14 @@
+{
+  "name": "mods",
+  "owner": {
+    "name": "Leo Ho"
+  },
+  "description": "Claude Code mods. Install all, or pick the ones you want.",
+  "plugins": [
+    {
+      "name": "all",
+      "source": "./mods/all",
+      "description": "Installs every mod in this marketplace"
+    }
+  ]
+}

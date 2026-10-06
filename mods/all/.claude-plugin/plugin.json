@@ -1,0 +1,7 @@
+{
+  "name": "all",
+  "version": "0.1.0",
+  "description": "Installs every mod in the le0u0/mods marketplace",
+  "author": { "name": "Leo Ho" },
+  "dependencies": []
+}
