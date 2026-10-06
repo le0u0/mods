@@ -9,6 +9,11 @@
       "name": "all",
       "source": "./mods/all",
       "description": "Installs every mod in this marketplace"
+    },
+    {
+      "name": "minimal-view",
+      "source": "./mods/minimal-view",
+      "description": "Hides tool calls and shows a plain checklist of the plan above the prompt"
     }
   ]
 }
