@@ -4,6 +4,8 @@ import type { EngineInterface, On, SessionRateLimit } from 'claude-code'
 import type { UsageTrackerLimit } from '../types'
 
 type $ = EngineInterface
+// How long after a /clear's `session.end` the new session has emptied this mod's values.
+const CLEAR_SETTLE_MS = 500
 
 const shownAtom = atom({ plugin: 'usage-tracker', key: 'isShown' } as const, true)
 const limitsAtom = atom({ plugin: 'usage-tracker', key: 'limits' } as const, [])
@@ -60,8 +62,7 @@ async function setShown($: $, isShown: boolean): Promise<void> {
   await $.store.set(SHOWN_KEY, isShown)
 }
 
-// Sets the mod up for a session: at its start, and again after a /clear, which starts a new one
-// with no `session.start`.
+// Sets the mod up for a session: at its start, and again after a /clear.
 async function setUp($: $): Promise<void> {
   const isShown = await $.store.get(SHOWN_KEY)
   await update($, shownAtom, () => isShown !== false)
@@ -82,10 +83,14 @@ export function registerUsageTracker(on: On): void {
     return result
   })
 
-  on('classic.SessionStart', async ($, e, next) => {
+  // A /clear fires no `session.start`, and the engine skips a user plugin's `classic.SessionStart`.
+  // The new session empties this mod's values once `session.end` is done, so set up after that.
+  on('session.end', async ($, e, next) => {
     const result = await next(e)
-    if (e.source === 'clear') {
-      await setUp($)
+    if (e.reason === 'clear') {
+      $.clock.after(CLEAR_SETTLE_MS, async () => {
+        await setUp($)
+      })
     }
 
     return result

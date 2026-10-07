@@ -4,6 +4,8 @@ import type { EngineInterface, On } from 'claude-code'
 import type { ModPanelLimit, ModPanelMod, ModPanelUsage } from '../types'
 
 type $ = EngineInterface
+// How long after a /clear's `session.end` the new session has emptied this mod's values.
+const CLEAR_SETTLE_MS = 500
 
 const PANE = 'mods'
 const PANE_TITLE = 'Mods'
@@ -79,10 +81,13 @@ const LIMIT_NAMES: Record<string, string> = {
   spend_limit: 'Spend limit',
 }
 
+// The command list is read too: a /clear empties this plugin's values but keeps every command,
+// so no `command.register` follows, and the engine skips a user plugin's `classic.SessionStart`.
 async function installedMods($: $): Promise<Mod[]> {
   const installed = await read($, installedAtom)
+  const commands = (await $.command.list()).map(command => command.name)
 
-  return MODS.filter(mod => installed.includes(mod.id))
+  return MODS.filter(mod => installed.includes(mod.id) || commands.includes(mod.command))
 }
 
 async function markInstalled($: $, commands: readonly string[]): Promise<void> {
@@ -301,8 +306,7 @@ let focused: string | null = null
 // The pane body's width as last drawn, for sizing it before the next draw.
 let paneColumns = DOCK_COLUMNS - 4
 
-// Sets the mod up for a session: at its start, and again after a /clear, which starts a new one
-// with no `session.start`.
+// Sets the mod up for a session: at its start, and again after a /clear.
 async function setUp($: $): Promise<void> {
   await markInstalled($, (await $.command.list()).map(command => command.name))
   await $.command.register({
@@ -319,10 +323,14 @@ export function registerModPanel(on: On): void {
     return result
   })
 
-  on('classic.SessionStart', async ($, e, next) => {
+  // A /clear fires no `session.start`, and the engine skips a user plugin's `classic.SessionStart`.
+  // The new session empties this mod's values once `session.end` is done, so set up after that.
+  on('session.end', async ($, e, next) => {
     const result = await next(e)
-    if (e.source === 'clear') {
-      await setUp($)
+    if (e.reason === 'clear') {
+      $.clock.after(CLEAR_SETTLE_MS, async () => {
+        await setUp($)
+      })
     }
 
     return result

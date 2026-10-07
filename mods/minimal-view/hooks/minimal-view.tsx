@@ -9,6 +9,8 @@ import type {
 } from '../types'
 
 type $ = EngineInterface
+// How long after a /clear's `session.end` the new session has emptied this mod's values.
+const CLEAR_SETTLE_MS = 500
 
 const enabledAtom = atom({ plugin: 'minimal-view', key: 'minimalViewEnabled' } as const, true)
 const checklistAtom = atom({ plugin: 'minimal-view', key: 'checklist' } as const, null)
@@ -320,8 +322,7 @@ async function startAnswer($: $): Promise<void> {
   )
 }
 
-// Sets the mod up for a session: at its start, and again after a /clear, which starts a new one
-// with no `session.start`.
+// Sets the mod up for a session: at its start, and again after a /clear.
 async function setUp($: $): Promise<void> {
   const stored = await $.store.get(STORE_KEY)
   await update($, enabledAtom, () => stored !== false)
@@ -364,12 +365,16 @@ export function registerMinimalView(on: On): void {
     return next(e)
   })
 
-  on('classic.SessionStart', async ($, e, next) => {
+  // A /clear fires no `session.start`, and the engine skips a user plugin's `classic.SessionStart`.
+  // The new session empties this mod's values once `session.end` is done, so set up after that.
+  on('session.end', async ($, e, next) => {
     const result = await next(e)
-    if (e.source === 'clear') {
-      // The old conversation's plan does not carry over.
-      await setChecklist($, () => null)
-      await setUp($)
+    if (e.reason === 'clear') {
+      $.clock.after(CLEAR_SETTLE_MS, async () => {
+        // The old conversation's plan does not carry over.
+        await setChecklist($, () => null)
+        await setUp($)
+      })
     }
 
     return result

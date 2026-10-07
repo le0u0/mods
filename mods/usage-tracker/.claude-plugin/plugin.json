@@ -1,6 +1,6 @@
 {
   "name": "usage-tracker",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Shows how much of your plan's usage limit is used, and what the last request took, under the prompt",
   "author": { "name": "Leo Ho" },
   "types": "./types/index.d.ts"

@@ -101,11 +101,13 @@ test('without plan limits the footer shows nothing of its own', async ($, on) =>
   await ui.unmount()
 })
 
-test('/clear sets the mod up again in the new session', async ($, on) => {
-  on('classic.SessionStart', () => ({}))
+test('/clear sets the mod up again once the new session has started', async ($, on) => {
+  on('session.end', ($, e) => ({ sessionId: e.sessionId }))
   engine(on)
   await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
   registered.length = 0
-  await $.classic.SessionStart({ source: 'clear' })
+  await $.session.end({ reason: 'clear', sessionId: 'old', resume: { id: 'old' } })
+  expect(registered).not.toContain('usage-tracker')
+  await clock.advance(500)
   expect(registered).toContain('usage-tracker')
 })

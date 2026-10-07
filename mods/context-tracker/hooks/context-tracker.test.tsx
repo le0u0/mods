@@ -50,12 +50,13 @@ async function startUnfolded($: Parameters<TestBody>[0]) {
   await foot.unmount()
 }
 
+let clock: ReturnType<typeof mock.clock>
 // Every command the mod registered, in order.
 const registered: string[] = []
 
 function engine(on: On, breakdown: SessionContextBreakdown = BREAKDOWN) {
   totalTokens = 90000
-  mock.clock(on)
+  clock = mock.clock(on)
   mock.store(on)
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('command.register', ($, e) => (registered.push(e.name), { value: { command: e.name } }))
@@ -192,11 +193,13 @@ test('a long list shows 10 and each press shows 10 more', async ($, on) => {
   await ui.unmount()
 })
 
-test('/clear sets the mod up again in the new session', async ($, on) => {
-  on('classic.SessionStart', () => ({}))
+test('/clear sets the mod up again once the new session has started', async ($, on) => {
+  on('session.end', ($, e) => ({ sessionId: e.sessionId }))
   engine(on)
   await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
   registered.length = 0
-  await $.classic.SessionStart({ source: 'clear' })
+  await $.session.end({ reason: 'clear', sessionId: 'old', resume: { id: 'old' } })
+  expect(registered).not.toContain('context-tracker')
+  await clock.advance(500)
   expect(registered).toContain('context-tracker')
 })

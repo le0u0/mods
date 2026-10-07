@@ -28,6 +28,7 @@ const runs: string[] = []
 const panes: string[] = []
 
 // A mod's value is undefined when it is installed but was never switched.
+let clock: ReturnType<typeof mock.clock>
 // Every command the mod registered, in order.
 const registered: string[] = []
 
@@ -35,7 +36,7 @@ function engine(on: On, installed: { minimalView?: boolean | null; contextTracke
   runs.length = 0
   panes.length = 0
   mock.store(on)
-  mock.clock(on)
+  clock = mock.clock(on)
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('command.register', ($, e) => (registered.push(e.name), { value: { command: e.name } }))
   on('ui.open', ($, e) => {
@@ -214,11 +215,21 @@ test('the pane asks for the rows its wrapped text and details take', () => {
   expect(paneRows([mod], mod, 60, { ...data, limits: three }) - paneRows([mod], mod, 60, { ...data, limits: three.slice(0, 2) })).toBe(3)
 })
 
-test('/clear sets the mod up again in the new session', async ($, on) => {
-  on('classic.SessionStart', () => ({}))
+test('/clear sets the mod up again once the new session has started', async ($, on) => {
+  on('session.end', ($, e) => ({ sessionId: e.sessionId }))
   engine(on, {})
   await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
   registered.length = 0
-  await $.classic.SessionStart({ source: 'clear' })
+  await $.session.end({ reason: 'clear', sessionId: 'old', resume: { id: 'old' } })
+  expect(registered).not.toContain('mods')
+  await clock.advance(500)
   expect(registered).toContain('mods')
+})
+
+test('after a /clear empties its values the footer still has the button', async ($, on) => {
+  // Before the mod sets itself up again, the commands it reads are still registered.
+  engine(on, { contextTracker: true })
+  const ui = await $.ui.mount(FOOTER)
+  expect((await ui.find({ key: 'open-mods' }))?.props.label).toBe('Mods ▾')
+  await ui.unmount()
 })

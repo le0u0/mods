@@ -283,11 +283,13 @@ test('a paused step stops its meter and says Paused', async ($, on) => {
   expect(await meterOf()).toBe(before)
 })
 
-test('/clear sets the mod up again in the new session', async ($, on) => {
-  on('classic.SessionStart', () => ({}))
-  engine(on)
+test('/clear sets the mod up again once the new session has started', async ($, on) => {
+  on('session.end', ($, e) => ({ sessionId: e.sessionId }))
+  const clock = engine(on)
   await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
   registered.length = 0
-  await $.classic.SessionStart({ source: 'clear' })
+  await $.session.end({ reason: 'clear', sessionId: 'old', resume: { id: 'old' } })
+  expect(registered).not.toContain('minimal')
+  await clock.advance(500)
   expect(registered).toContain('minimal')
 })
