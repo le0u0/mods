@@ -13,13 +13,16 @@ const BAND = {
 } as const
 
 // The engine beneath the plugin: every tool answers, Haiku names the job.
+// Every command the mod registered, in order.
+const registered: string[] = []
+
 function engine(on: On, { hasPlanTool = true } = {}) {
   const clock = mock.clock(on)
   on('tool.list', () => ({ value: hasPlanTool ? [{ name: PLAN, description: '', mcp: true }, { name: PROGRESS, description: '', mcp: true }] : [] }))
   mock.store(on)
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('tool.register', ($, e) => ({ value: { tool: `mcp__minimal-view__${e.name}` } }))
-  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('command.register', ($, e) => (registered.push(e.name), { value: { command: e.name } }))
   on('turn.start', ($, e) => ({ turnId: e.turnId }))
   on('turn.complete', ($, e) => ({ text: e.answer }))
   on('ui.toast', () => ({ value: undefined }))
@@ -278,4 +281,13 @@ test('a paused step stops its meter and says Paused', async ($, on) => {
   const before = await meterOf()
   await clock.advance(1000)
   expect(await meterOf()).toBe(before)
+})
+
+test('/clear sets the mod up again in the new session', async ($, on) => {
+  on('classic.SessionStart', () => ({}))
+  engine(on)
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  registered.length = 0
+  await $.classic.SessionStart({ source: 'clear' })
+  expect(registered).toContain('minimal')
 })

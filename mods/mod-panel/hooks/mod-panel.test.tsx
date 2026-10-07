@@ -28,13 +28,16 @@ const runs: string[] = []
 const panes: string[] = []
 
 // A mod's value is undefined when it is installed but was never switched.
+// Every command the mod registered, in order.
+const registered: string[] = []
+
 function engine(on: On, installed: { minimalView?: boolean | null; contextTracker?: boolean | null; usageTracker?: boolean | null }) {
   runs.length = 0
   panes.length = 0
   mock.store(on)
   mock.clock(on)
   on('session.start', ($, e) => ({ cwd: e.cwd }))
-  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('command.register', ($, e) => (registered.push(e.name), { value: { command: e.name } }))
   on('ui.open', ($, e) => {
     panes.push(`open ${e.id}`)
 
@@ -157,6 +160,8 @@ test('a narrow pane leaves the hints out', async ($, on) => {
   ui = await $.ui.mount({ ...PANE, props: { ...PANE.props, bodyColumns: 26 } } as never)
   expect(await ui.find({ type: 'Text', text: /plan, no tool calls/ })).toBeUndefined()
   expect(await ui.find({ key: 'toggle-minimal-view' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /esc to close/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /esc close/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -207,4 +212,13 @@ test('the pane asks for the rows its wrapped text and details take', () => {
   expect(paneRows([mod], mod, 60, { ...data, limits: three.slice(0, 2) })).toBe(paneRows([mod], mod, 120, { ...data, limits: three.slice(0, 2) }) + 1)
   // Three limits fit two to a row at 60 columns: two rows of three lines.
   expect(paneRows([mod], mod, 60, { ...data, limits: three }) - paneRows([mod], mod, 60, { ...data, limits: three.slice(0, 2) })).toBe(3)
+})
+
+test('/clear sets the mod up again in the new session', async ($, on) => {
+  on('classic.SessionStart', () => ({}))
+  engine(on, {})
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  registered.length = 0
+  await $.classic.SessionStart({ source: 'clear' })
+  expect(registered).toContain('mods')
 })

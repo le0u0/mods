@@ -187,20 +187,35 @@ async function setCollapsed($: $, isCollapsed: boolean): Promise<void> {
   await $.store.set(COLLAPSED_KEY, isCollapsed)
 }
 
+// Sets the mod up for a session: at its start, and again after a /clear, which starts a new one
+// with no `session.start`.
+async function setUp($: $): Promise<void> {
+  const isShown = await $.store.get(SHOWN_KEY)
+  const isCollapsed = await $.store.get(COLLAPSED_KEY)
+  await update($, shownAtom, () => isShown !== false)
+  // Folded until the person opens the card.
+  await update($, collapsedAtom, () => isCollapsed !== false)
+  await $.command.register({
+    name: 'context-tracker',
+    description: 'Show or hide the context tracker above the prompt',
+    argumentHint: 'on|off',
+  })
+  await refresh($, true).catch(() => {})
+}
+
 export function registerContextTracker(on: On): void {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
-    const isShown = await $.store.get(SHOWN_KEY)
-    const isCollapsed = await $.store.get(COLLAPSED_KEY)
-    await update($, shownAtom, () => isShown !== false)
-    // Folded until the person opens the card.
-    await update($, collapsedAtom, () => isCollapsed !== false)
-    await $.command.register({
-      name: 'context-tracker',
-      description: 'Show or hide the context tracker above the prompt',
-      argumentHint: 'on|off',
-    })
-    await refresh($, true).catch(() => {})
+    await setUp($)
+
+    return result
+  })
+
+  on('classic.SessionStart', async ($, e, next) => {
+    const result = await next(e)
+    if (e.source === 'clear') {
+      await setUp($)
+    }
 
     return result
   })

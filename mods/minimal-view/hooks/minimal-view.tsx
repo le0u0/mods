@@ -320,42 +320,59 @@ async function startAnswer($: $): Promise<void> {
   )
 }
 
+// Sets the mod up for a session: at its start, and again after a /clear, which starts a new one
+// with no `session.start`.
+async function setUp($: $): Promise<void> {
+  const stored = await $.store.get(STORE_KEY)
+  await update($, enabledAtom, () => stored !== false)
+  await $.tool.register({
+    name: 'plan_steps',
+    description:
+      'Lay out every step of the job up front, 2 to 8 short plain-English names in order, each starting with a verb. The first step starts right away. Call this first for every request.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        steps: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 8 },
+      },
+      required: ['steps'],
+    },
+  })
+  await $.tool.register({
+    name: 'report_progress',
+    description:
+      'Report progress on the current step of the plan, by its name and a percent from 0 to 100. Report 100 the moment a step finishes; the next step then starts.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        task: { type: 'string' },
+        percent: { type: 'number', minimum: 0, maximum: 100 },
+      },
+      required: ['task', 'percent'],
+    },
+  })
+  await $.command.register({
+    name: 'minimal',
+    description: 'Turn Minimal View on or off',
+    argumentHint: 'on|off',
+  })
+}
+
 export function registerMinimalView(on: On): void {
   on('session.start', async ($, e, next) => {
-    const stored = await $.store.get(STORE_KEY)
-    await update($, enabledAtom, () => stored !== false)
-    await $.tool.register({
-      name: 'plan_steps',
-      description:
-        'Lay out every step of the job up front, 2 to 8 short plain-English names in order, each starting with a verb. The first step starts right away. Call this first for every request.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          steps: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 8 },
-        },
-        required: ['steps'],
-      },
-    })
-    await $.tool.register({
-      name: 'report_progress',
-      description:
-        'Report progress on the current step of the plan, by its name and a percent from 0 to 100. Report 100 the moment a step finishes; the next step then starts.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          task: { type: 'string' },
-          percent: { type: 'number', minimum: 0, maximum: 100 },
-        },
-        required: ['task', 'percent'],
-      },
-    })
-    await $.command.register({
-      name: 'minimal',
-      description: 'Turn Minimal View on or off',
-      argumentHint: 'on|off',
-    })
+    await setUp($)
 
     return next(e)
+  })
+
+  on('classic.SessionStart', async ($, e, next) => {
+    const result = await next(e)
+    if (e.source === 'clear') {
+      // The old conversation's plan does not carry over.
+      await setChecklist($, () => null)
+      await setUp($)
+    }
+
+    return result
   })
 
   // The mod-panel plugin turns this mod on or off by writing its `switch` request.

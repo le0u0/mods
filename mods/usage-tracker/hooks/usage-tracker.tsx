@@ -60,18 +60,33 @@ async function setShown($: $, isShown: boolean): Promise<void> {
   await $.store.set(SHOWN_KEY, isShown)
 }
 
+// Sets the mod up for a session: at its start, and again after a /clear, which starts a new one
+// with no `session.start`.
+async function setUp($: $): Promise<void> {
+  const isShown = await $.store.get(SHOWN_KEY)
+  await update($, shownAtom, () => isShown !== false)
+  await $.command.register({
+    name: 'usage-tracker',
+    description: 'Show or hide your plan usage under the prompt',
+    argumentHint: 'on|off',
+  })
+  const { rateLimits } = await $.session.usage()
+  await setLimits($, rateLimits)
+}
+
 export function registerUsageTracker(on: On): void {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
-    const isShown = await $.store.get(SHOWN_KEY)
-    await update($, shownAtom, () => isShown !== false)
-    await $.command.register({
-      name: 'usage-tracker',
-      description: 'Show or hide your plan usage under the prompt',
-      argumentHint: 'on|off',
-    })
-    const { rateLimits } = await $.session.usage()
-    await setLimits($, rateLimits)
+    await setUp($)
+
+    return result
+  })
+
+  on('classic.SessionStart', async ($, e, next) => {
+    const result = await next(e)
+    if (e.source === 'clear') {
+      await setUp($)
+    }
 
     return result
   })

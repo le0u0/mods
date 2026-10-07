@@ -63,6 +63,8 @@ const MODS: readonly Mod[] = [
 
 // The keys lines at the foot of the list and of a mod's page.
 const LIST_KEYS = (count: number) => `↑↓ to move · space to open · 1-${count} to open a mod · esc to close`
+// The keys line a narrow pane shows, so it does not wrap.
+const SHORT_LIST_KEYS = (count: number) => `1-${count} open · esc close`
 const PAGE_KEYS = 'space to press · q to go back · esc to close'
 const NO_LIMITS = "No usage limits yet. They show after Claude's first reply on a Claude plan."
 // Usage limits sit side by side, each column this wide at least, this far apart.
@@ -162,6 +164,11 @@ export function limitBar(percent: number, width: number): { full: number; partia
   return { full, partial, rest: width - full - partial.length }
 }
 
+// The list's keys line: the short one once the full one would wrap.
+export function listKeys(count: number, width: number): string {
+  return LIST_KEYS(count).length <= width ? LIST_KEYS(count) : SHORT_LIST_KEYS(count)
+}
+
 // Rows a line of text takes when it wraps at `width` cells.
 export function wrappedRows(text: string, width: number): number {
   return Math.max(1, Math.ceil(text.length / Math.max(1, width)))
@@ -241,7 +248,7 @@ export function paneRows(
 ): number {
   if (page === null) {
     // Title, gap, a row per mod, gap, keys.
-    return 3 + mods.length + wrappedRows(LIST_KEYS(mods.length), width)
+    return 3 + mods.length + wrappedRows(listKeys(mods.length, width), width)
   }
   const details = detailRows(page.id, width, data)
 
@@ -294,14 +301,29 @@ let focused: string | null = null
 // The pane body's width as last drawn, for sizing it before the next draw.
 let paneColumns = DOCK_COLUMNS - 4
 
+// Sets the mod up for a session: at its start, and again after a /clear, which starts a new one
+// with no `session.start`.
+async function setUp($: $): Promise<void> {
+  await markInstalled($, (await $.command.list()).map(command => command.name))
+  await $.command.register({
+    name: 'mods',
+    description: 'Open or close the panel that turns each mod on or off',
+  })
+}
+
 export function registerModPanel(on: On): void {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
-    await markInstalled($, (await $.command.list()).map(command => command.name))
-    await $.command.register({
-      name: 'mods',
-      description: 'Open or close the panel that turns each mod on or off',
-    })
+    await setUp($)
+
+    return result
+  })
+
+  on('classic.SessionStart', async ($, e, next) => {
+    const result = await next(e)
+    if (e.source === 'clear') {
+      await setUp($)
+    }
 
     return result
   })
@@ -388,6 +410,8 @@ export function registerModPanel(on: On): void {
     const hintWidth = Math.max(0, ...mods.map(mod => mod.hint.length)) + 2
     // A docked pane can be narrow: past the room for a hint, rows leave it out.
     const hasHints = e.props.bodyColumns >= 2 + nameWidth + hintWidth + SWITCH_WIDTH
+    // Narrower still, the switch drops its brackets so it is not cut off.
+    const isCompact = e.props.bodyColumns < 2 + nameWidth + SWITCH_WIDTH
 
     const states: Record<Mod['id'], boolean> = {
       'minimal-view': (await $.state.get(minimalViewEnabled)).value ?? true,
@@ -475,6 +499,19 @@ export function registerModPanel(on: On): void {
     const toggle = (mod: Mod, isAutoFocus: boolean) => {
       const isOn = states[mod.id]
 
+      if (isCompact) {
+        return (
+          <Button
+            key={`toggle-${mod.id}`}
+            plain
+            dimColor={isOn ? undefined : true}
+            label={isOn ? 'On' : 'Off'}
+            autoFocus={isAutoFocus ? true : undefined}
+            onPress={() => setMod($, mod, !isOn)}
+          />
+        )
+      }
+
       return (
         <Button
           key={`toggle-${mod.id}`}
@@ -522,11 +559,13 @@ export function registerModPanel(on: On): void {
 
       return (
         <Box key={`row-${mod.id}`} flexDirection="row">
-          {isOn ? <Text color="success">● </Text> : <Text dimColor>○ </Text>}
+          <Box width={2} flexShrink={0}>
+            {isOn ? <Text color="success">●</Text> : <Text dimColor>○</Text>}
+          </Box>
           <Button
             key={`page-${mod.id}`}
             plain
-            label={mod.name.padEnd(nameWidth)}
+            label={mod.name.padEnd(isCompact ? Math.min(nameWidth, e.props.bodyColumns - 6) : nameWidth)}
             autoFocus={index === 0 ? true : undefined}
             onPress={() => showPage($, mod.id)}
           />
@@ -542,7 +581,7 @@ export function registerModPanel(on: On): void {
         <Text> </Text>
         {rows}
         <Text> </Text>
-        <Text dimColor>{LIST_KEYS(mods.length)}</Text>
+        <Text dimColor>{listKeys(mods.length, e.props.bodyColumns)}</Text>
         {keys}
       </Box>
     )

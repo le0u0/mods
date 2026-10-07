@@ -9,6 +9,9 @@ const FOOTER = { plugin: 'usage-tracker', component: 'SessionMode', surface: 'te
 let rateLimits: SessionRateLimit[] = []
 let clock: ReturnType<typeof mock.clock>
 
+// Every command the mod registered, in order.
+const registered: string[] = []
+
 function engine(on: On) {
   rateLimits = [
     { kind: 'five_hour', percentUsed: 57, resetsAt: '2026-10-07T04:50:00Z' },
@@ -18,7 +21,7 @@ function engine(on: On) {
   clock = mock.clock(on)
   on('turn.complete', ($, e) => ({ text: e.answer }))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
-  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('command.register', ($, e) => (registered.push(e.name), { value: { command: e.name } }))
   on('turn.start', ($, e) => ({ turnId: e.turnId }))
   on('session.measure', ($, e) => ({ changed: e.changed }))
   on('session.usage', () => ({ value: { startedAt: 0, rateLimits, context: { tokens: 0, window: 1000000, percent: 0 } } as never }))
@@ -96,4 +99,13 @@ test('without plan limits the footer shows nothing of its own', async ($, on) =>
   const ui = await $.ui.mount(FOOTER)
   expect(await ui.find({ type: 'Text', text: /usage/ })).toBeUndefined()
   await ui.unmount()
+})
+
+test('/clear sets the mod up again in the new session', async ($, on) => {
+  on('classic.SessionStart', () => ({}))
+  engine(on)
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  registered.length = 0
+  await $.classic.SessionStart({ source: 'clear' })
+  expect(registered).toContain('usage-tracker')
 })

@@ -50,12 +50,15 @@ async function startUnfolded($: Parameters<TestBody>[0]) {
   await foot.unmount()
 }
 
+// Every command the mod registered, in order.
+const registered: string[] = []
+
 function engine(on: On, breakdown: SessionContextBreakdown = BREAKDOWN) {
   totalTokens = 90000
   mock.clock(on)
   mock.store(on)
   on('session.start', ($, e) => ({ cwd: e.cwd }))
-  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('command.register', ($, e) => (registered.push(e.name), { value: { command: e.name } }))
   on('turn.complete', ($, e) => ({ text: e.answer }))
   on('turn.start', ($, e) => ({ turnId: e.turnId }))
   on('session.usage', ($, e) => ({
@@ -187,4 +190,13 @@ test('a long list shows 10 and each press shows 10 more', async ($, on) => {
   await ui.press({ key: 'less' })
   expect(await ui.find({ type: 'Text', text: 'skill-10' })).toBeUndefined()
   await ui.unmount()
+})
+
+test('/clear sets the mod up again in the new session', async ($, on) => {
+  on('classic.SessionStart', () => ({}))
+  engine(on)
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  registered.length = 0
+  await $.classic.SessionStart({ source: 'clear' })
+  expect(registered).toContain('context-tracker')
 })
