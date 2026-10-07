@@ -12,7 +12,7 @@ Requires Claude Code 2.1.287 or later.
 | --- | --- |
 | `all` | Installs every mod below in one step |
 | [`minimal-view`](mods/minimal-view/README.md) | Hides tool calls and shows a plain checklist of the plan above the prompt |
-| [`context-bar`](mods/context-bar/README.md) | Shows how full the context window is, by category, in a bar above the prompt |
+| [`context-tracker`](mods/context-tracker/README.md) | Shows how full the context window is, by category, in a bar above the prompt |
 | [`mod-panel`](mods/mod-panel/README.md) | Adds a **Mods** button under the prompt that opens a panel to turn each mod on or off |
 
 ## Install

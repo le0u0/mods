@@ -1,10 +1,10 @@
-# context-bar
+# context-tracker
 
 Shows how full the context window is, by category, in a bar above the prompt.
 
 ## Use
 
-- `/context-bar` shows or hides the bar. `/context-bar on` and `/context-bar off` set it.
+- `/context-tracker` shows or hides the bar. `/context-tracker on` and `/context-tracker off` set it.
 - The setting is kept across sessions.
 
 ## What you see
@@ -15,5 +15,5 @@ Shows how full the context window is, by category, in a bar above the prompt.
 
 ## Controls
 
-- The arrow next to **context** folds the bar to one line.
+- The arrow next to **context** folds the card away. The tokens used, the window size and the percent then sit under the prompt, such as `◆ 48k of 1M · 5%`, next to the **Mods** button. Press its **▴** to bring the card back.
 - The arrow next to a category lists what is in it, such as each skill or MCP server. Long lists show 10 at a time; press **more** for the next 10.

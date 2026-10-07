@@ -184,7 +184,7 @@ test('a quick answer with no plan moves on to writing the answer', async ($, on)
   await ui.unmount()
 })
 
-test('the band keeps rows from later plugins, like the context bar, below the checklist', async ($, on) => {
+test('the band keeps rows from later plugins, like the context tracker, below the checklist', async ($, on) => {
   const clock = engine(on)
   await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
   const idle = await $.ui.mount({ ...BAND, surface: 'terminal' })

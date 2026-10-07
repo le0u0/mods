@@ -7,7 +7,7 @@
   },
   "dependencies": [
     "minimal-view",
-    "context-bar",
+    "context-tracker",
     "mod-panel"
   ]
 }

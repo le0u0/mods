@@ -1,7 +1,7 @@
 import type { Register } from 'claude-code'
 
-import { registerContextBar } from './context-bar'
+import { registerContextTracker } from './context-tracker'
 
 export const register: Register = on => {
-  registerContextBar(on)
+  registerContextTracker(on)
 }

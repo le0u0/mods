@@ -16,8 +16,8 @@
       "description": "Hides tool calls and shows a plain checklist of the plan above the prompt"
     },
     {
-      "name": "context-bar",
-      "source": "./mods/context-bar",
+      "name": "context-tracker",
+      "source": "./mods/context-tracker",
       "description": "Shows how full the context window is, by category, in a bar above the prompt"
     },
     {

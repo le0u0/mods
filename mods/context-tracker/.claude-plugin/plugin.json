@@ -1,5 +1,5 @@
 {
-  "name": "context-bar",
+  "name": "context-tracker",
   "version": "0.2.0",
   "description": "Shows how full the context window is, by category, in a bar above the prompt",
   "author": { "name": "Leo Ho" },

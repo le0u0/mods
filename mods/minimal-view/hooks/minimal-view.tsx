@@ -345,6 +345,17 @@ export function registerMinimalView(on: On): void {
     return next(e)
   })
 
+  // The mod-panel plugin turns this mod on or off by writing its `switch` request.
+  on('state.set', { plugin: 'mod-panel', key: 'switch' } as never, async ($, e, next) => {
+    const result = await next(e)
+    const request = (e as { value?: { mod?: string; isOn?: boolean } | null }).value
+    if (request?.mod === 'minimal-view' && typeof request.isOn === 'boolean') {
+      await setEnabled($, request.isOn)
+    }
+
+    return result
+  })
+
   on('command.run', { command: 'minimal' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
     if (arg !== '' && arg !== 'on' && arg !== 'off') {
@@ -640,7 +651,7 @@ export function registerMinimalView(on: On): void {
       </Box>
     )
 
-    // Rows from later plugins, like the context bar, stay below the band.
+    // Rows from later plugins, like the context tracker, stay below the band.
     const below = await next(e)
     const stack = (band: ReturnType<typeof Box>) => (
       <Box flexDirection="column">

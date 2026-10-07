@@ -25,7 +25,7 @@ Do all five steps every time:
 2. Add an entry to `.claude-plugin/marketplace.json` with `"source": "./mods/<mod>"`.
 3. Add the mod to `dependencies` in `mods/all/.claude-plugin/plugin.json`.
 4. Add a row to the Mods table in `README.md`, its name linking to `mods/<mod>/README.md`, and a link to the list in `mods/all/README.md`.
-5. If the mod can be turned on and off, add it to `MODS` in `mods/mod-panel/hooks/mod-panel.tsx`, its value to `mods/mod-panel/types/index.d.ts`, and its name to the list in `mods/mod-panel/README.md`.
+5. If the mod can be turned on and off, add it to `MODS` in `mods/mod-panel/hooks/mod-panel.tsx`, its value to `mods/mod-panel/types/index.d.ts`, and its name to the list in `mods/mod-panel/README.md`. In the mod, hook `state.set` on `{ plugin: 'mod-panel', key: 'switch' }` and switch itself when the request names it, as `minimal-view` does.
 
 ## Checking
 

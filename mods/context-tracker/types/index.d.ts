@@ -1,18 +1,18 @@
-export type ContextBarItem = {
+export type ContextTrackerItem = {
   name: string
   tokens: number
 }
 
-export type ContextBarRow = {
+export type ContextTrackerRow = {
   name: string
   tokens: number
   color: string
   kind: 'used' | 'free' | 'buffer' | 'deferred'
-  items: ContextBarItem[]
+  items: ContextTrackerItem[]
 }
 
-export type ContextBarUsage = {
-  rows: ContextBarRow[]
+export type ContextTrackerUsage = {
+  rows: ContextTrackerRow[]
   totalTokens: number
   maxTokens: number
   percent: number
@@ -21,13 +21,13 @@ export type ContextBarUsage = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'context-bar': {
+    'context-tracker': {
       isShown: boolean
       isCollapsed: boolean
       openRow: string | null
       itemLimit: number
       turnBase: number | null
-      usage: ContextBarUsage | null
+      usage: ContextTrackerUsage | null
     }
   }
 }

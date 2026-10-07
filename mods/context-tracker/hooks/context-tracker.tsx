@@ -1,16 +1,16 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, On, SessionContextBreakdown } from 'claude-code'
 
-import type { ContextBarItem, ContextBarRow, ContextBarUsage } from '../types'
+import type { ContextTrackerItem, ContextTrackerRow, ContextTrackerUsage } from '../types'
 
 type $ = EngineInterface
 
-const shownAtom = atom({ plugin: 'context-bar', key: 'isShown' } as const, true)
-const collapsedAtom = atom({ plugin: 'context-bar', key: 'isCollapsed' } as const, false)
-const openRowAtom = atom({ plugin: 'context-bar', key: 'openRow' } as const, null)
-const itemLimitAtom = atom({ plugin: 'context-bar', key: 'itemLimit' } as const, 10)
-const turnBaseAtom = atom({ plugin: 'context-bar', key: 'turnBase' } as const, null)
-const usageAtom = atom({ plugin: 'context-bar', key: 'usage' } as const, null)
+const shownAtom = atom({ plugin: 'context-tracker', key: 'isShown' } as const, true)
+const collapsedAtom = atom({ plugin: 'context-tracker', key: 'isCollapsed' } as const, false)
+const openRowAtom = atom({ plugin: 'context-tracker', key: 'openRow' } as const, null)
+const itemLimitAtom = atom({ plugin: 'context-tracker', key: 'itemLimit' } as const, 10)
+const turnBaseAtom = atom({ plugin: 'context-tracker', key: 'turnBase' } as const, null)
+const usageAtom = atom({ plugin: 'context-tracker', key: 'usage' } as const, null)
 
 const SHOWN_KEY = 'isShown'
 const COLLAPSED_KEY = 'isCollapsed'
@@ -50,7 +50,7 @@ function shortPath(path: string): string {
 }
 
 // Sums items by name and sorts the largest first.
-function itemList(entries: ContextBarItem[]): ContextBarItem[] {
+function itemList(entries: ContextTrackerItem[]): ContextTrackerItem[] {
   const byName = new Map<string, number>()
   for (const entry of entries) {
     byName.set(entry.name, (byName.get(entry.name) ?? 0) + entry.tokens)
@@ -60,7 +60,7 @@ function itemList(entries: ContextBarItem[]): ContextBarItem[] {
 }
 
 // The breakdown lists what makes up these rows; built-in tools have a total alone.
-function itemsFor(name: string, breakdown: SessionContextBreakdown): ContextBarItem[] {
+function itemsFor(name: string, breakdown: SessionContextBreakdown): ContextTrackerItem[] {
   switch (name) {
     case 'mcp':
       return itemList(breakdown.mcpTools.filter(tool => tool.isLoaded).map(tool => ({ name: tool.serverName, tokens: tool.tokens })))
@@ -75,9 +75,9 @@ function itemsFor(name: string, breakdown: SessionContextBreakdown): ContextBarI
   }
 }
 
-export function toUsage(breakdown: SessionContextBreakdown): ContextBarUsage {
+export function toUsage(breakdown: SessionContextBreakdown): ContextTrackerUsage {
   // Rows that share a name (MCP tools and MCP server instructions) are summed into one.
-  const rows: ContextBarRow[] = []
+  const rows: ContextTrackerRow[] = []
   for (const category of breakdown.categories) {
     if (category.kind !== 'used' && category.kind !== 'free') {
       continue
@@ -111,7 +111,7 @@ export function toUsage(breakdown: SessionContextBreakdown): ContextBarUsage {
 }
 
 // Splits `width` cells among the used rows by their tokens; a row with any tokens gets at least one cell.
-export function barCells(usage: ContextBarUsage, width: number): { color: string; cells: number }[] {
+export function barCells(usage: ContextTrackerUsage, width: number): { color: string; cells: number }[] {
   const max = Math.max(1, usage.maxTokens)
   const segments = usage.rows
     .filter(row => row.kind === 'used' && row.tokens > 0)
@@ -135,7 +135,7 @@ function badgeColor(percent: number): string {
 }
 
 // The bar as an SVG for surfaces that draw one: a thin rounded strip, each row a slice, a tick at the compaction point.
-function barSvg(usage: ContextBarUsage): string {
+function barSvg(usage: ContextTrackerUsage): string {
   const max = Math.max(1, usage.maxTokens)
   let x = 0
   const slices = usage.rows
@@ -185,7 +185,7 @@ async function setCollapsed($: $, isCollapsed: boolean): Promise<void> {
   await $.store.set(COLLAPSED_KEY, isCollapsed)
 }
 
-export function registerContextBar(on: On): void {
+export function registerContextTracker(on: On): void {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
     const isShown = await $.store.get(SHOWN_KEY)
@@ -193,8 +193,8 @@ export function registerContextBar(on: On): void {
     await update($, shownAtom, () => isShown !== false)
     await update($, collapsedAtom, () => isCollapsed === true)
     await $.command.register({
-      name: 'context-bar',
-      description: 'Show or hide the context bar above the prompt',
+      name: 'context-tracker',
+      description: 'Show or hide the context tracker above the prompt',
       argumentHint: 'on|off',
     })
     await refresh($, true).catch(() => {})
@@ -202,15 +202,26 @@ export function registerContextBar(on: On): void {
     return result
   })
 
-  on('command.run', { command: 'context-bar' }, async ($, e) => {
+  // The mod-panel plugin turns this mod on or off by writing its `switch` request.
+  on('state.set', { plugin: 'mod-panel', key: 'switch' } as never, async ($, e, next) => {
+    const result = await next(e)
+    const request = (e as { value?: { mod?: string; isOn?: boolean } | null }).value
+    if (request?.mod === 'context-tracker' && typeof request.isOn === 'boolean') {
+      await setShown($, request.isOn)
+    }
+
+    return result
+  })
+
+  on('command.run', { command: 'context-tracker' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase()
     if (arg !== '' && arg !== 'on' && arg !== 'off') {
-      return { text: 'Use /context-bar on, /context-bar off, or /context-bar to switch.' }
+      return { text: 'Use /context-tracker on, /context-tracker off, or /context-tracker to switch.' }
     }
     const isShown = arg === '' ? !(await read($, shownAtom)) : arg === 'on'
     await setShown($, isShown)
 
-    return { text: isShown ? 'Context bar shown.' : 'Context bar hidden.' }
+    return { text: isShown ? 'Context tracker shown.' : 'Context tracker hidden.' }
   })
 
   on('turn.start', async ($, e, next) => {
@@ -242,12 +253,35 @@ export function registerContextBar(on: On): void {
     return result
   })
 
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+  // Folded, the card leaves the band and its figures sit in the prompt footer, by the mode labels.
+  on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     const usage = await read($, usageAtom)
-    if (e.props.hasSurvey || usage === null || !(await read($, shownAtom))) {
+    if (usage === null || !(await read($, shownAtom)) || !(await read($, collapsedAtom))) {
       return next(e)
     }
+    const { Box, Button, Text } = $.ui.resolve(e)
+    const modes = await next(e)
+
+    return (
+      <Box flexDirection="row">
+        <Text>
+          <Text color="claude">◆ </Text>
+          <Text bold>{formatTokens(usage.totalTokens)}</Text>
+          <Text dimColor> of {formatTokens(usage.maxTokens)} · {Math.round(usage.percent)}% </Text>
+        </Text>
+        <Button key="expand" plain dimColor label="▴" onPress={() => setCollapsed($, false)} />
+        <Text> </Text>
+        {modes}
+      </Box>
+    )
+  })
+
+  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+    const usage = await read($, usageAtom)
     const isCollapsed = await read($, collapsedAtom)
+    if (e.props.hasSurvey || usage === null || isCollapsed || !(await read($, shownAtom))) {
+      return next(e)
+    }
     const openRow = await read($, openRowAtom)
     const itemLimit = await read($, itemLimitAtom)
     const turnBase = await read($, turnBaseAtom)
@@ -269,8 +303,8 @@ export function registerContextBar(on: On): void {
             key="collapse"
             plain
             dimColor
-            label={isCollapsed ? '▸' : '▾'}
-            onPress={() => setCollapsed($, !isCollapsed)}
+            label="▾"
+            onPress={() => setCollapsed($, true)}
           />
         </Box>
         <Text>
@@ -351,36 +385,34 @@ export function registerContextBar(on: On): void {
       )
 
     const card = (
-      <Box key="context-bar" flexDirection="column" borderStyle="round" borderDimColor paddingX={1} width={width}>
+      <Box key="context-tracker" flexDirection="column" borderStyle="round" borderDimColor paddingX={1} width={width}>
         {header}
-        {isCollapsed ? null : bar}
-        {isCollapsed ? null : (
-          <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
-            {usage.rows.map(row => (
-              <Box key={`row-${row.name}`} flexDirection="row">
-                <Text>
-                  <Text color={row.color}>■ </Text>
-                  <Text>{row.name} </Text>
-                  <Text bold>{formatTokens(row.tokens)}</Text>
-                  {row.kind === 'free' ? null : <Text dimColor> {Math.round((row.tokens / max) * 100)}%</Text>}
-                </Text>
-                {row.items.length === 0 ? null : (
-                  <Button
-                    key={`open-${row.name}`}
-                    plain
-                    dimColor
-                    label={row.name === openRow ? ' ▾' : ' ▸'}
-                    onPress={async () => {
-                      await update($, itemLimitAtom, () => ITEM_PAGE)
-                      await update($, openRowAtom, current => (current === row.name ? null : row.name))
-                    }}
-                  />
-                )}
-              </Box>
-            ))}
-          </Box>
-        )}
-        {isCollapsed ? null : details}
+        {bar}
+        <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
+          {usage.rows.map(row => (
+            <Box key={`row-${row.name}`} flexDirection="row">
+              <Text>
+                <Text color={row.color}>■ </Text>
+                <Text>{row.name} </Text>
+                <Text bold>{formatTokens(row.tokens)}</Text>
+                {row.kind === 'free' ? null : <Text dimColor> {Math.round((row.tokens / max) * 100)}%</Text>}
+              </Text>
+              {row.items.length === 0 ? null : (
+                <Button
+                  key={`open-${row.name}`}
+                  plain
+                  dimColor
+                  label={row.name === openRow ? ' ▾' : ' ▸'}
+                  onPress={async () => {
+                    await update($, itemLimitAtom, () => ITEM_PAGE)
+                    await update($, openRowAtom, current => (current === row.name ? null : row.name))
+                  }}
+                />
+              )}
+            </Box>
+          ))}
+        </Box>
+        {details}
       </Box>
     )
 
