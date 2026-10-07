@@ -6,7 +6,7 @@ import type { ContextTrackerItem, ContextTrackerRow, ContextTrackerUsage } from 
 type $ = EngineInterface
 
 const shownAtom = atom({ plugin: 'context-tracker', key: 'isShown' } as const, true)
-const collapsedAtom = atom({ plugin: 'context-tracker', key: 'isCollapsed' } as const, false)
+const collapsedAtom = atom({ plugin: 'context-tracker', key: 'isCollapsed' } as const, true)
 const openRowAtom = atom({ plugin: 'context-tracker', key: 'openRow' } as const, null)
 const itemLimitAtom = atom({ plugin: 'context-tracker', key: 'itemLimit' } as const, 10)
 const turnBaseAtom = atom({ plugin: 'context-tracker', key: 'turnBase' } as const, null)
@@ -18,6 +18,8 @@ const REFRESH_MS = 3000
 const MIN_BAR = 10
 const ITEM_PAGE = 10
 const FREE_COLOR = '#3a3f4b'
+// Space between this mod's figures and the next entry in the prompt footer.
+const FOOTER_GAP = '  '
 const MARKER_COLOR = '#e0a84f'
 const BADGE_TEXT = '#1b1d22'
 
@@ -191,7 +193,8 @@ export function registerContextTracker(on: On): void {
     const isShown = await $.store.get(SHOWN_KEY)
     const isCollapsed = await $.store.get(COLLAPSED_KEY)
     await update($, shownAtom, () => isShown !== false)
-    await update($, collapsedAtom, () => isCollapsed === true)
+    // Folded until the person opens the card.
+    await update($, collapsedAtom, () => isCollapsed !== false)
     await $.command.register({
       name: 'context-tracker',
       description: 'Show or hide the context tracker above the prompt',
@@ -266,11 +269,12 @@ export function registerContextTracker(on: On): void {
       <Box flexDirection="row">
         <Text>
           <Text color="claude">◆ </Text>
-          <Text bold>{formatTokens(usage.totalTokens)}</Text>
-          <Text dimColor> of {formatTokens(usage.maxTokens)} · {Math.round(usage.percent)}% </Text>
+          <Text dimColor>context </Text>
+          <Text bold>{Math.round(usage.percent)}%</Text>
+          <Text> </Text>
         </Text>
         <Button key="expand" plain dimColor label="▴" onPress={() => setCollapsed($, false)} />
-        <Text> </Text>
+        <Text>{FOOTER_GAP}</Text>
         {modes}
       </Box>
     )

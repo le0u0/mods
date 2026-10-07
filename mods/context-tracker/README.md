@@ -15,5 +15,5 @@ Shows how full the context window is, by category, in a bar above the prompt.
 
 ## Controls
 
-- The arrow next to **context** folds the card away. The tokens used, the window size and the percent then sit under the prompt, such as `◆ 48k of 1M · 5%`, next to the **Mods** button. Press its **▴** to bring the card back.
+- It starts folded: the percent of the window used sits under the prompt, such as `◆ context 5% ▴`, next to the **Mods** button. Press **▴** to open the card above the prompt, and the arrow next to **context** to fold it again. It remembers which you chose.
 - The arrow next to a category lists what is in it, such as each skill or MCP server. Long lists show 10 at a time; press **more** for the next 10.

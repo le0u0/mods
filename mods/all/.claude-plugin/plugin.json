@@ -8,6 +8,7 @@
   "dependencies": [
     "minimal-view",
     "context-tracker",
-    "mod-panel"
+    "mod-panel",
+    "usage-tracker"
   ]
 }

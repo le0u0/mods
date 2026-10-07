@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'claude-code/testing'
+import type { TestBody } from 'claude-code/testing'
 import type { On, SessionContextBreakdown } from 'claude-code'
 
 import { barCells, formatTokens, toUsage } from './context-tracker'
@@ -39,6 +40,16 @@ const BREAKDOWN: SessionContextBreakdown = {
 
 let totalTokens = 90000
 
+const FOOTER = { plugin: 'context-tracker', component: 'SessionMode', surface: 'terminal', props: { modes: ['focus'] } } as const
+
+// The card starts folded; press the footer's arrow to show it in the band.
+async function startUnfolded($: Parameters<TestBody>[0]) {
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  const foot = await $.ui.mount(FOOTER)
+  await foot.press({ key: 'expand' })
+  await foot.unmount()
+}
+
 function engine(on: On, breakdown: SessionContextBreakdown = BREAKDOWN) {
   totalTokens = 90000
   mock.clock(on)
@@ -77,7 +88,7 @@ test('the bar fills its width and keeps the buffer out of the legend', () => {
 
 test('the band shows the window and each category above the prompt', async ($, on) => {
   engine(on)
-  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  await startUnfolded($)
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...BAND, surface })
     expect(await ui.find({ type: 'Text', text: /compacts at 987k/ })).toBeDefined()
@@ -96,7 +107,7 @@ test('the band shows the window and each category above the prompt', async ($, o
 
 test('/context-tracker hides and shows the band', async ($, on) => {
   engine(on)
-  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  await startUnfolded($)
   expect(await $.command.run({ command: 'context-tracker', args: '' } as never)).toMatchObject({ text: 'Context tracker hidden.' })
   let ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /compacts at/ })).toBeUndefined()
@@ -114,42 +125,40 @@ test('the MCP row lists loaded tools by server', () => {
 
 test('a row arrow opens its list', async ($, on) => {
   engine(on)
-  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  await startUnfolded($)
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   await ui.press({ key: 'open-mcp' })
   expect(await ui.find({ type: 'Text', text: 'docs' })).toBeDefined()
   await ui.unmount()
 })
 
-test('folded, the card leaves the band for its figures in the footer', async ($, on) => {
+test('it starts folded, its figures in the footer, and unfolds into the band', async ($, on) => {
   engine(on)
   await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
-  const footer = { plugin: 'context-tracker', component: 'SessionMode', surface: 'terminal', props: { modes: ['focus'] } } as const
-  let foot = await $.ui.mount(footer)
-  expect(await foot.find({ key: 'expand' })).toBeUndefined()
-  await foot.unmount()
-
   let band = await $.ui.mount({ ...BAND, surface: 'terminal' })
-  await band.press({ key: 'collapse' })
-  await band.unmount()
-  band = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect(await band.find({ type: 'Text', text: /compacts at/ })).toBeUndefined()
   expect(await band.find({ type: 'Text', text: 'engine row' })).toBeDefined()
   await band.unmount()
 
-  foot = await $.ui.mount(footer)
-  expect(await foot.find({ type: 'Text', text: '90k' })).toBeDefined()
-  expect(await foot.find({ type: 'Text', text: ' of 1M · 9% ' })).toBeDefined()
+  let foot = await $.ui.mount(FOOTER)
+  expect(await foot.find({ type: 'Text', text: 'context ' })).toBeDefined()
+  expect(await foot.find({ type: 'Text', text: '9%' })).toBeDefined()
+  expect(await foot.find({ type: 'Text', text: /90k/ })).toBeUndefined()
   await foot.press({ key: 'expand' })
   await foot.unmount()
+
   band = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect(await band.find({ type: 'Text', text: /compacts at/ })).toBeDefined()
+  await band.press({ key: 'collapse' })
   await band.unmount()
+  foot = await $.ui.mount(FOOTER)
+  expect(await foot.find({ key: 'expand' })).toBeDefined()
+  await foot.unmount()
 })
 
 test('the header shows what this turn added', async ($, on) => {
   engine(on)
-  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  await startUnfolded($)
   await $.turn.start({ text: 'hi', turnId: 't1' })
   totalTokens = 93200
   await $.turn.complete({ answer: 'done' } as never)
@@ -165,7 +174,7 @@ test('a long list shows 10 and each press shows 10 more', async ($, on) => {
     categories: [...BREAKDOWN.categories, { name: 'Skills', tokens: 24700, color: 'claude', isDeferred: false, kind: 'used' }],
     skills: { totalSkills: 25, includedSkills: 25, tokens: 24700, skillFrontmatter: skills },
   })
-  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
+  await startUnfolded($)
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   await ui.press({ key: 'open-skills' })
   expect(await ui.find({ type: 'Text', text: 'skill-9' })).toBeDefined()

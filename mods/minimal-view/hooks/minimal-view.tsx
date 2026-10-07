@@ -47,7 +47,8 @@ The person sees a plain checklist of your plan instead of your tool calls.
 - Write every step name in plain English a non-technical person understands. Keep it under 40 characters and start it with a verb, like "Build the pricing section".
 - Never put file paths, file names, commands, code or tool names in a step name.
 - For every request, even a quick question, call \`${PLAN_TOOL}\` first with 2 to 8 steps in order. Load it with ToolSearch if it is deferred. Then call \`${PROGRESS_TOOL}\` as real progress happens, and with 100 the moment a step finishes.
-- If this session has TodoWrite or TaskCreate, you can use your to-do list as the plan instead.`
+- If this session has TodoWrite or TaskCreate, you can use your to-do list as the plan instead.
+- The checklist is not your reply. Your plan always ends with a "${ANSWER_STEP}" step: once the other steps are done, write your answer to the person in plain text.`
 
 // Every step name and job title passes through here.
 export function cleanName(raw: string): string {
@@ -292,6 +293,18 @@ async function finishJob($: $, phase: MinimalViewPhase, change: Partial<MinimalV
   }
 }
 
+// A step that is the reply to the person itself, like "Write the answer" or "Reply to you";
+// not work that merely mentions one, like "Respond to review comments".
+export function isAnswerStep(name: string): boolean {
+  return /^(write|give|send)( the| your| my| an?)? (answer|reply|response)( to (you|the person|the question))?$/i.test(name.trim())
+    || /^(answer|reply|respond)( to (you|the person|the question))?$/i.test(name.trim())
+}
+
+// Every plan ends with writing the answer, so the checklist never ends before the reply does.
+export function withAnswerStep(names: readonly string[]): string[] {
+  return isAnswerStep(names.at(-1) ?? '') ? [...names] : [...names, ANSWER_STEP]
+}
+
 // A reply that starts with no plan (a quick question) moves the placeholders on to writing the answer.
 async function startAnswer($: $): Promise<void> {
   await patchRunning($, current =>
@@ -413,9 +426,11 @@ export function registerMinimalView(on: On): void {
     if (names.length === 0) {
       return { result: 'Give at least one step name in `steps`.' }
     }
-    await applyPlan($, makeTasks(names, `plan-${e.tool_use_id}`))
+    const steps = withAnswerStep(names)
+    await applyPlan($, makeTasks(steps, `plan-${e.tool_use_id}`))
+    const added = steps.length > names.length ? ` (yours, then "${ANSWER_STEP}")` : ''
 
-    return { result: `Planned ${names.length} steps. The first one has started.` }
+    return { result: `Planned ${steps.length} steps${added}. The first one has started. After the last one, write your answer to the person.` }
   })
 
   on('tool.call', { tool: /^mcp__minimal-view__report_progress$/ }, async ($, e) => {
@@ -441,8 +456,10 @@ export function registerMinimalView(on: On): void {
 
       return { ...current, tasks: reportOn(tasks, index, percent) }
     })
+    const after = await read($, checklistAtom)
+    const isAnswerNext = after !== null && after.tasks.every(task => task.status === 'done' || isAnswerStep(task.name))
 
-    return { result: `Progress noted: ${percent}%.` }
+    return { result: isAnswerNext ? `Progress noted: ${percent}%. Every step is done: now write your answer to the person.` : `Progress noted: ${percent}%.` }
   })
 
   // The plan-first gate, then what Claude already does turned into checklist state.
@@ -609,7 +626,7 @@ export function registerMinimalView(on: On): void {
         await patchRunning($, current => ({ ...current, phase: 'stuck', stuckReason: reason, needsYouReason: null }))
       } else if (checklist.phase === 'stuck') {
         // Stuck stays on screen until the next success or prompt.
-      } else if (checklist.isPlanned && checklist.tasks.some(task => task.status === 'upcoming')) {
+      } else if (checklist.isPlanned && checklist.tasks.some(task => task.status === 'upcoming' && !isAnswerStep(task.name))) {
         // Only steps not yet started mean Claude is waiting on you: the last step is often the reply itself.
         await patchRunning($, current => ({ ...current, phase: 'needs-you', needsYouReason: WAITING_FOR_REPLY }))
       } else {

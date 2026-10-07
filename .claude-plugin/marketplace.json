@@ -24,6 +24,11 @@
       "name": "mod-panel",
       "source": "./mods/mod-panel",
       "description": "Adds a Mods button below the prompt that opens a panel to turn each mod on or off"
+    },
+    {
+      "name": "usage-tracker",
+      "source": "./mods/usage-tracker",
+      "description": "Shows how much of your plan's usage limit is used, and what the last request took, under the prompt"
     }
   ]
 }

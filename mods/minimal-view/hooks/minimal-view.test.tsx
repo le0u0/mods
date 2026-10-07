@@ -2,7 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { cleanName } from './minimal-view'
+import { cleanName, withAnswerStep } from './minimal-view'
 
 const PLAN = 'mcp__minimal-view__plan_steps'
 const PROGRESS = 'mcp__minimal-view__report_progress'
@@ -120,13 +120,32 @@ test('plan_steps then 100% checks off step one and starts step two', async ($, o
   engine(on)
   await startJob($)
   const planned = await call($, PLAN, { steps: ['Read the notes', 'Write the page', 'Check the page'] })
-  expect(planned.text ?? planned.result).toMatch(/Planned 3 steps/)
+  expect(planned.text ?? planned.result).toMatch(/Planned 4 steps \(yours, then "Write the answer"\)/)
   await call($, PROGRESS, { task: 'Read the notes', percent: 100 })
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   const icons = (await ui.findAll({ type: 'Text', text: /^(✓|▶|○) $/ })).map(found => found.text)
-  expect(icons).toEqual(['✓ ', '▶ ', '○ '])
+  expect(icons).toEqual(['✓ ', '▶ ', '○ ', '○ '])
   expect(await ui.find({ type: 'Text', text: /Write the page/ })).toMatchObject({ props: { bold: true } })
+  expect(await ui.find({ type: 'Text', text: /Write the answer/ })).toBeDefined()
   await ui.unmount()
+})
+
+test('once every step is done, Claude is told to write the answer', async ($, on) => {
+  engine(on)
+  await startJob($)
+  await call($, PLAN, { steps: ['Read the notes'] })
+  const progress = await call($, PROGRESS, { task: 'Read the notes', percent: 100 })
+  expect(progress.text ?? progress.result).toMatch(/now write your answer/)
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /Write the answer/ })).toMatchObject({ props: { bold: true } })
+  await ui.unmount()
+})
+
+test('a plan that already ends with the reply gets no extra step', () => {
+  expect(withAnswerStep(['Check the code', 'Write the reply'])).toEqual(['Check the code', 'Write the reply'])
+  expect(withAnswerStep(['Check the code'])).toEqual(['Check the code', 'Write the answer'])
+  expect(withAnswerStep(['Read the PR', 'Respond to review comments'])).toEqual(['Read the PR', 'Respond to review comments', 'Write the answer'])
+  expect(withAnswerStep(['Draft response email'])).toEqual(['Draft response email', 'Write the answer'])
 })
 
 test('tools are denied before a plan exists and allowed after', async ($, on) => {
