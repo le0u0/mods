@@ -207,7 +207,6 @@ function scheduleCollapse($: $, jobId: number): void {
 async function setEnabled($: $, isEnabled: boolean): Promise<void> {
   await update($, enabledAtom, () => isEnabled)
   await $.store.set(STORE_KEY, isEnabled)
-  $.ui.toast(isEnabled ? 'Minimal View is on: tool details are hidden.' : 'Minimal View is off: every detail is shown.')
 }
 
 async function startJob($: $, prompt: string): Promise<void> {
@@ -627,20 +626,17 @@ export function registerMinimalView(on: On): void {
     if (e.props.hasSurvey) {
       return next(e)
     }
-    const { Box, Button, Text } = $.ui.resolve(e)
+    const { Box, Text } = $.ui.resolve(e)
+    // The mod-panel button turns this mod on and off; idle, the band is empty.
     const isEnabled = await read($, enabledAtom)
-    const button = (
-      <Button
-        key="toggle"
-        label={isEnabled ? '● Minimal View: ON' : '○ Minimal View: OFF'}
-        onPress={() => setEnabled($, !isEnabled)}
-      />
-    )
+    const checklist = isEnabled ? await read($, checklistAtom) : null
+    if (checklist === null) {
+      return next(e)
+    }
     const width = Math.max(20, e.props.bodyColumns)
-    const header = (left: ReturnType<typeof Text> | null) => (
-      <Box flexDirection="row" justifyContent="space-between" width={width}>
-        <Box flexShrink={1}>{left ?? <Text> </Text>}</Box>
-        {button}
+    const header = (left: ReturnType<typeof Text>) => (
+      <Box flexDirection="row" width={width}>
+        <Box flexShrink={1}>{left}</Box>
       </Box>
     )
 
@@ -653,14 +649,6 @@ export function registerMinimalView(on: On): void {
       </Box>
     )
 
-    if (!isEnabled) {
-      return stack(header(null))
-    }
-
-    const checklist = await read($, checklistAtom)
-    if (checklist === null) {
-      return stack(header(null))
-    }
     const tick = await read($, tickAtom)
     const now = await $.clock.now()
     const elapsed = formatDuration((checklist.finishedAt ?? now) - checklist.startedAt)

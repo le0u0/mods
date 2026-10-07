@@ -242,17 +242,6 @@ export function registerContextBar(on: On): void {
     return result
   })
 
-  // Hidden, the card's figures stay in the prompt footer's mode labels; `$.ui.status` would add a warning sign and the plugin's name.
-  on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
-    const usage = await read($, usageAtom)
-    if (usage === null || (await read($, shownAtom))) {
-      return next(e)
-    }
-    const label = `◆ context ${formatTokens(usage.totalTokens)} · ${Math.round(usage.percent)}%`
-
-    return next({ ...e, props: { ...e.props, modes: [label, ...e.props.modes] } })
-  })
-
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const usage = await read($, usageAtom)
     if (e.props.hasSurvey || usage === null || !(await read($, shownAtom))) {

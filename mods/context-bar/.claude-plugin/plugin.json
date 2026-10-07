@@ -1,6 +1,6 @@
 {
   "name": "context-bar",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shows how full the context window is, by category, in a bar above the prompt",
   "author": { "name": "Leo Ho" },
   "types": "./types/index.d.ts"

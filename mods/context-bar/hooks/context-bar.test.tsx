@@ -53,7 +53,7 @@ function engine(on: On, breakdown: SessionContextBreakdown = BREAKDOWN) {
   on('ui.render', ($, e) => {
     const { Text } = $.ui.resolve(e)
 
-    return <Text>{e.component === 'SessionMode' ? e.props.modes.join(' & ') : 'engine row'}</Text>
+    return <Text>engine row</Text>
   })
 }
 
@@ -133,20 +133,6 @@ test('the header shows what this turn added', async ($, on) => {
   await $.turn.complete({ answer: 'done' } as never)
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: / \+3\.2k/ })).toBeDefined()
-  await ui.unmount()
-})
-
-test('hidden, the prompt footer keeps the figures', async ($, on) => {
-  engine(on)
-  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true })
-  const footer = { plugin: 'context-bar', component: 'SessionMode', surface: 'terminal', props: { modes: ['focus'] } } as const
-  await $.command.run({ command: 'context-bar', args: 'off' } as never)
-  let ui = await $.ui.mount(footer)
-  expect(await ui.find({ type: 'Text', text: '◆ context 90k · 9% & focus' })).toBeDefined()
-  await ui.unmount()
-  await $.command.run({ command: 'context-bar', args: 'on' } as never)
-  ui = await $.ui.mount(footer)
-  expect(await ui.find({ type: 'Text', text: 'focus' })).toBeDefined()
   await ui.unmount()
 })
 

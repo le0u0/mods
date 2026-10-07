@@ -1,12 +1,13 @@
 {
   "name": "all",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Installs every mod in the le0u0/mods marketplace",
   "author": {
     "name": "Leo Ho"
   },
   "dependencies": [
     "minimal-view",
-    "context-bar"
+    "context-bar",
+    "mod-panel"
   ]
 }

@@ -1,0 +1,7 @@
+{
+  "name": "mod-panel",
+  "version": "0.1.0",
+  "description": "Adds a Mods button below the prompt that opens a panel to turn each mod on or off",
+  "author": { "name": "Leo Ho" },
+  "types": "./types/index.d.ts"
+}

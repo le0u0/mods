@@ -19,6 +19,11 @@
       "name": "context-bar",
       "source": "./mods/context-bar",
       "description": "Shows how full the context window is, by category, in a bar above the prompt"
+    },
+    {
+      "name": "mod-panel",
+      "source": "./mods/mod-panel",
+      "description": "Adds a Mods button below the prompt that opens a panel to turn each mod on or off"
     }
   ]
 }

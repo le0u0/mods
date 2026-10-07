@@ -76,7 +76,7 @@ test('a to-do list and a 60% report draw done, current, next and later rows', as
     expect(await ui.find({ type: 'Text', text: /60%/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^\s*Next$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Up next/ })).toBeDefined()
-    expect(await ui.find({ key: 'toggle' })).toBeDefined()
+    expect(await ui.find({ key: 'toggle' })).toBeUndefined()
     await ui.unmount()
   }
 })
@@ -109,7 +109,7 @@ test('/minimal off hides the band and shows tool rows again', async ($, on) => {
   await $.command.run({ command: 'minimal', args: 'off', origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 80 } })
   const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
   expect(await ui.find({ type: 'Text', text: /Read the notes/ })).toBeUndefined()
-  expect((await ui.find({ key: 'toggle' }))?.props.label).toBe('○ Minimal View: OFF')
+  expect(await ui.find({ type: 'Text', text: 'engine row' })).toBeDefined()
   await ui.unmount()
   const shown = await $.ui.mount({ plugin: 'minimal-view', surface: 'terminal', component: 'ToolUse', props: { tool_use_id: 'x', tool: 'Read', input: {}, isRunning: false, isErrored: false, isInterrupted: false } })
   expect(await shown.find({ type: 'Text', text: 'engine row' })).toBeDefined()

@@ -11,8 +11,9 @@ Requires Claude Code 2.1.287 or later.
 | Mod | What it does |
 | --- | --- |
 | `all` | Installs every mod below in one step |
-| `minimal-view` | Hides tool calls and shows a plain checklist of the plan above the prompt. `/minimal on\|off` |
-| `context-bar` | Shows how full the context window is, by category, in a bar above the prompt. `/context-bar on\|off` |
+| [`minimal-view`](mods/minimal-view/README.md) | Hides tool calls and shows a plain checklist of the plan above the prompt |
+| [`context-bar`](mods/context-bar/README.md) | Shows how full the context window is, by category, in a bar above the prompt |
+| [`mod-panel`](mods/mod-panel/README.md) | Adds a **Mods** button under the prompt that opens a panel to turn each mod on or off |
 
 ## Install
 
@@ -36,4 +37,4 @@ Add the marketplace once:
 /plugin install <mod>@mods
 ```
 
-Replace `<mod>` with a name from the table above.
+Replace `<mod>` with a name from the table above. Each mod's page says how to use it.
